@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mitchellh/copystructure"
 	"github.com/unidoc/unioffice"
 	"github.com/unidoc/unioffice/schema/soo/pkg/relationships"
 )
@@ -27,8 +28,19 @@ func NewRelationships() Relationships {
 
 // NewRelationshipsCopy creates a new relationships wrapper as a copy of passed in instance.
 func NewRelationshipsCopy(rels Relationships) Relationships {
-	copiedBody := *rels.x
-	return Relationships{x: &copiedBody}
+	copiedRels := Relationships{
+		x: &relationships.Relationships{},
+	}
+	if rels.x.Relationship != nil {
+		copiedRels.x.Relationship = make([]*relationships.Relationship, 0, len(rels.x.Relationship))
+	}
+
+	for _, r := range rels.x.Relationship {
+		copiedR := *r
+		copiedRels.x.Relationship = append(copiedRels.x.Relationship, &copiedR)
+	}
+
+	return copiedRels
 }
 
 // X returns the underlying raw XML data.
@@ -107,6 +119,8 @@ func (r Relationships) Remove(rel Relationship) bool {
 func (r Relationships) CopyRelationship(idAttr string) (Relationship, bool) {
 	for i := range r.x.Relationship {
 		if r.x.Relationship[i].IdAttr == idAttr {
+			copied, err := copystructure.Copy(r.x.Relationship[i])
+
 			copied := *r.x.Relationship[i]
 
 			nextID := len(r.x.Relationship) + 1

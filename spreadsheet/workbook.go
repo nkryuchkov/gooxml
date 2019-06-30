@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mitchellh/copystructure"
 	"github.com/unidoc/unioffice"
 	"github.com/unidoc/unioffice/common"
 	"github.com/unidoc/unioffice/vmldrawing"
@@ -177,8 +178,15 @@ func (wb *Workbook) CopySheet(ind int, copiedSheetName string) (Sheet, error) {
 		unioffice.WorksheetContentType, ind+1), unioffice.AbsoluteFilename(unioffice.DocTypeSpreadsheet,
 		unioffice.WorksheetContentType, len(wb.ContentTypes.X().Override)))
 
-	copiedWs := *wb.xws[ind]
-	wb.xws = append(wb.xws, &copiedWs)
+	copiedWsIfc, err := copystructure.Copy(wb.xws[ind])
+	if err != nil {
+		return Sheet{}, err
+	}
+	copiedWs, ok := copiedWsIfc.(*sml.Worksheet)
+	if !ok {
+		return Sheet{}, errors.New("error copying sheet structure")
+	}
+	wb.xws = append(wb.xws, copiedWs)
 
 	var nextSheetID uint32 = 0
 	for _, s := range wb.x.Sheets.Sheet {
@@ -202,11 +210,20 @@ func (wb *Workbook) CopySheet(ind int, copiedSheetName string) (Sheet, error) {
 	if copiedCommentsPtr == nil {
 		wb.comments = append(wb.comments, nil)
 	} else {
-		copiedComments := *copiedCommentsPtr
-		wb.comments = append(wb.comments, &copiedComments)
+		copiedCommentsIfc, err := copystructure.Copy(copiedCommentsPtr)
+		if err != nil {
+			return Sheet{}, err
+		}
+
+		copiedComments, ok := copiedCommentsIfc.(*sml.Comments)
+		if !ok {
+			return Sheet{}, errors.New("error copying sheet structure")
+		}
+
+		wb.comments = append(wb.comments, copiedComments)
 	}
 
-	return Sheet{wb, &copiedSheet, &copiedWs}, nil
+	return Sheet{wb, &copiedSheet, copiedWs}, nil
 }
 
 // CopySheetByName copies the existing sheet with the name `name` and puts its copy with the name `copiedSheetName`.
